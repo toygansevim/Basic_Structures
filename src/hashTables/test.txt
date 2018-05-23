@@ -1,0 +1,320 @@
+package hashTables;
+
+
+    private class hashTableIterator implements Iterator<T>
+    {
+
+        private int nextIndex;
+        private HashTableElement nextElement;
+
+        public hashTableIterator()
+        {
+            nextIndex = -1;
+            int modCount;
+
+
+            nextElement = table[nextIndex];
+
+            if (nextElement == null || !nextElement.isActive)
+            {
+                moveToNextIndex();
+            }
+        }
+
+
+        /**
+         * Returns {@code true} if the iteration has more elements.
+         * (In other words, returns {@code true} if {@link #next} would
+         * return an element rather than throwing an exception.)
+         *
+         * @return {@code true} if the iteration has more elements
+         */
+        @Override
+        public boolean hasNext()
+        {
+            return nextElement != null && nextElement.isActive;
+        }
+
+        /**
+         * Returns the next element in the iteration.
+         *
+         * @return the next element in the iteration
+         * @throws NoSuchElementException if the iteration has no more elements
+         */
+        @Override
+        public T next()
+        {
+            if (!hasNext())
+            {
+                throw new NoSuchElementException("Tried to next when nothing next");
+            }
+
+            T data = (T) nextElement.data;
+
+            moveToNextIndex();
+
+            return data;
+
+
+        }
+
+        private void moveToNextIndex()
+        {
+            do
+            {
+                nextIndex++;
+            } while (nextIndex < table.length && (table[nextIndex] == null || !table[nextIndex]
+                    .isActive));
+
+            nextElement = table[nextIndex];
+
+        }
+    }
+
+
+
+
+
+import java.util.Iterator;
+
+public class HashTable<T> implements Iterable<T>
+{
+
+    public static final int INITIAL_TABLE_SIZE = 10;
+    private static final double RESIZE_RATE = 2.0;
+    private static final double MAX_LOAD_FACTOR = 0.6;  //this is the percentage of resizing and
+    // making the previous array bigger if the array is occupied with %60 percent full!
+
+    private HashTableElement[] table;
+
+    private int usedSpaces; //whole number of size of the array with active and inactive
+    private int size; //number of active spots
+
+    public HashTable()
+    {
+        table = new HashTableElement[INITIAL_TABLE_SIZE];
+    }
+
+    public boolean add(T element)
+    {
+        //have we exceeded the load factor?
+        if (exceededLoadFactor()) //Did the table exceeded the load factor? //If yes we can't
+        // copy the array, we have to rehash the table and insert into bigger array
+        {
+            reHash();
+        }
+
+        int codeHashed = element.hashCode();
+        int index = codeHashed % table.length;  //the position of the index after hash
+
+
+        /**
+         * THIS IS CRITICAL HERE THE CURRENT IS EQUAL TO THE TABLE INDEX
+         */
+        //check for collision
+        HashTableElement current = table[index]; //this is the element at the position, but we
+        // have to check the position as well.
+
+        while (current != null)
+        {
+            //stop if the element is already in the table
+            if (current.data.equals(element)) //This is vital to the program
+            {
+
+                //DUPLICATE CHECK
+                if (current.isActive)
+                {
+                    //do nothing
+                    return false; //uncessfull the elemtn is already there
+                }
+                else
+                {
+
+                    //ADD THE NEW ELEMENT AT THIS POSITION
+                    current.data = element;
+
+                    //set it to active
+                    current.isActive = true;
+
+                    //increment the size
+                    size++;
+
+                    //we found a spot
+                    return true;
+                }
+
+            }
+
+            //otherwise move to the next element
+            index += 1; //incerement the index
+
+            index = index % table.length; //Hash with the new table size;
+
+            current = table[index];
+
+        }
+
+        //We found a Null spot and we are adding a new element
+        table[index] = new HashTableElement(element, true);
+        usedSpaces++;
+        size++;
+        return true;
+
+
+    }
+
+    //check that whether the load factor is exceeded or not!
+    private boolean exceededLoadFactor()
+    {
+        return (double) size / table.length >= MAX_LOAD_FACTOR;
+    }
+
+
+    public boolean contains(T element)
+    {
+        int index = find(element);
+
+        if (index != -1)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+
+    }
+
+    public boolean remove(T element)
+    {
+        int index = find(element);
+
+        if (index != -1)
+        {
+
+            //check the active
+            if (table[index].isActive)
+            {
+                table[index].isActive = false;
+                return true;
+            }
+
+        }
+
+        return false;
+
+    }
+
+
+    private int size()
+    {
+        return size;
+    }
+
+    private boolean isEmpty()
+    {
+        return size == 0;
+    }
+
+
+    public void clear()
+    {
+        size = 0;
+        usedSpaces = 0;
+        table = new HashTableElement[INITIAL_TABLE_SIZE];
+
+    }
+
+    /**
+     * RETUNS THE INDEX WHICH IT IS FOUND WHETHER IT IS ACTIVE OR NOT
+     * This method will help us to avoid redundancy in the code
+     *
+     * @param element searching element
+     * @return index which we found it
+     */
+    private int find(T element)
+    {
+        int code = element.hashCode();
+
+        int index = code % table.length;
+
+        while (table[index] != null)
+        {
+            if (table[index].data.equals(element))
+            {
+                return index;
+            }
+            index = (index + 1) % table.length;
+        }
+
+        return -1;
+    }
+
+    //THIS WILL BE CALLED WHEN LOAD FACTOR IS EXCEEDED
+    private void reHash()
+    {
+        //Save the old table
+        HashTableElement[] oldTable = table;
+
+        //set our size and used soaced to zero so that add() method
+        //can starts new
+        size = 0;
+        usedSpaces = 0;
+
+        //reassign our table array
+        table = new HashTableElement[(int) (oldTable.length * RESIZE_RATE)]; //We are creating a
+        // new array with the resized value!
+
+        //LOOP OVER EACH ELEMENT THAT IS ACTIVE!!!  AND ADD IT
+
+        for (int i = 0; i < oldTable.length; i++)
+        {
+            if (oldTable[i] != null && oldTable[i].isActive)
+            {
+                add((T) oldTable[i].data); //WE ARE ADDING
+            }
+        }
+
+
+    }
+
+
+    /**
+     * Returns an iterator over elements of type {@code T}.
+     *
+     * @return an Iterator.
+     */
+    @Override
+    public Iterator<T> iterator()
+    {
+        return null;
+    }
+
+
+    private class HashTableElement<T>  //This is a different generic type t
+    {
+        private T data;
+        private boolean isActive;
+
+        public HashTableElement(T data, boolean isActive)
+        {
+            this.data = data;
+            this.isActive = isActive;
+        }
+
+
+        public String toString()
+        {
+            if (!isActive)
+            {
+                return "Inactive";
+            }
+            else
+            {
+                return data.toString();
+            }
+        }
+    }
+
+
+}
